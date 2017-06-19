@@ -5,7 +5,7 @@ import os.path
 import contextlib
 
 
-__all__ = [ 'attach_log_to_exception', 'attach', 'log_exception', 'log',
+__all__ = [ 'log_to_exception', 'log_exception', 
             'update_parser', 'config_from_args']
 
 ##############################################################################

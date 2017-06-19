@@ -18,23 +18,29 @@ python setup.py install
 Attach a log message to an exception:
 
 ```python
+import logging
 import logging_exceptions as exlog
+
 e = ValueError("Wrong value")
-exlog.attach(e, "This is a %s log mressage", "long")
-raise e
+logger = logging.getLogger(__name__)
+with exlog.log_to_exception(logger, e):
+  logger.critical("This is a %s log mressage", "long")
+raise e # The exception can also be raised inside the with statement
 ```
 
 If the error is not caught, the log message will be displayed upon program
-termination at critical level.
+termination.
 
-Catch the error and display the log message at a log-level lower than critical:
+Catch the error and display the log message at a costum log-level:
 
 ```python
 import logging_exceptions as exlog
 import logging
 try:
-    e = ValueError("Wrong value")
-    exlog.attach(e, "This is a %s log mressage", "long")
+  e = ValueError("Wrong value")
+  logger = logging.getLogger(__name__)
+  with exlog.log_to_exception(logger, e):
+    logger.critical("This is a %s log mressage", "long")
     raise e
 except ValueError as err:
     exlog.log(err, level=logging.DEBUG)
