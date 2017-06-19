@@ -8,6 +8,32 @@ import contextlib
 __all__ = [ 'attach_log_to_exception', 'attach', 'log_exception', 'log',
             'update_parser', 'config_from_args']
 
+##############################################################################
+### A costum sys.excepthook that displays all log messages
+### associated with an unhandled exception.
+###############################################################################
+
+# The except_hook before we modify it
+default_excepthook = sys.excepthook
+
+def logging_excepthook(type, exception, traceback):
+    """
+    A except_hook that inspects the exception for the 'log' attribute.
+    If it finds this attribute, it logs the contained log-records with the
+    level ''critical' before calling default_excepthook
+    """
+    if hasattr(exception, "log"):
+        for record in exception.log:
+            logging.getLogger(record.name).handle(record)
+    default_excepthook(type, exception, traceback)
+
+sys.excepthook = logging_excepthook
+
+###############################################################################
+### Public API for attaching log messages to exceptions and
+### for displaying logs associated with caught exceptions.
+###############################################################################
+
 @contextlib.contextmanager
 def log_to_exception(logger, exception):
     # __enter__:
@@ -37,67 +63,6 @@ def log_to_exception(logger, exception):
         logger.propagate = propagate
         logger.handlers = original_handlers
 
-
-
-
-
-
-
-
-
-###############################################################################
-### A costum sys.excepthook that displays all log messages
-### associated with an unhandled exception.
-###############################################################################
-
-# The except_hook before we modify it
-default_excepthook = sys.excepthook
-
-def logging_excepthook(type, exception, traceback):
-    """
-    A except_hook that inspects the exception for the 'log' attribute.
-    If it finds this attribute, it logs the contained log-records with the
-    level ''critical' before calling default_excepthook
-    """
-    if hasattr(exception, "log"):
-        for record in exception.log:
-            logging.getLogger(record.name).handle(record)
-    default_excepthook(type, exception, traceback)
-
-sys.excepthook = logging_excepthook
-
-###############################################################################
-### Public API for attaching log messages to exceptions and
-### for displaying logs associated with caught exceptions.
-###############################################################################
-
-def attach_log_to_exception(exception, msg, *args):
-    """
-    Adds a log-record to the exception's 'log' attribute
-
-    Creates the 'log' list, if the attribute does not yet exist.
-
-    msg, and args are the same as for logging.Logger.debug()
-    """
-    logger = logging.getLogger(__name__)
-
-    fn, lno, func = _find_caller()
-    record = logging.LogRecord(type(exception).__name__, logging.CRITICAL, fn,
-                               lno, msg, args, None, func)
-    # Copy the LogRecord from the handler's buffer to the exception
-    if hasattr(exception, "log"):
-        if isinstance(exception.log, list):
-            exception.log.append(record)
-        else:
-            logger.warning("Cannot attach log to exception %s. "
-                           "Potential name clash with attribute 'log'",
-                           type(exception).__name__)
-    else:
-        # Create attributa as a 1-element list.
-        exception.log = [record]
-
-attach = attach_log_to_exception
-
 def log_exception(exception, level=None, logger=None):
     """
     Log the given exception at the specified level with the specified logger.
@@ -108,20 +73,20 @@ def log_exception(exception, level=None, logger=None):
     if hasattr(exception, "log"):
         for record in exception.log:
             _log_at_level(record, level, logger)
-        if logger is None:
-            logger = logging.getLogger(record.name)
+        if exception.log and logger is None:
+                logger = logging.getLogger(exception.log[-1].name)
     if level is None:
         level = logging.CRITICAL
 
     if logger is None:
         logger = logging.getLogger()
-    fn, lno, func = _find_caller()
-    record = logging.LogRecord(logger.name, logging.CRITICAL, fn, lno,
-                               "Exception of type '%s' occurred:",
-                               type(exception).__name__, sys.exc_info(), func)
-    _log_at_level(record, level, logger)
+    if level is None:
+        level=logging.CRITICAL
+    logger.log(level, "Exception of type '%s' occurred:",
+               type(exception).__name__, exc_info=True)
 
 log = log_exception
+
 ###############################################################################
 ### Public API: Convenience functions for argparsing
 ###############################################################################
@@ -179,25 +144,6 @@ def config_from_args(args):
 ###############################################################################
 ### Private utility functions
 ###############################################################################
-def _find_caller():
-    """
-    See logging.logger.findCaller
-
-    Unfortunately, I saw no way around copy-pasting this
-    from logging.Logger.findCaller. However, I did not bother guaranteeing
-    compatibility with IronPython and frozen modules.
-    """
-    f = sys._getframe()
-    rv = "(unknown file)", 0, "(unknown function)"
-    while hasattr(f, "f_code"):
-        co = f.f_code
-        filename = os.path.normcase(co.co_filename)
-        if filename == os.path.normcase(__file__):
-            f = f.f_back
-            continue
-        rv = (co.co_filename, f.f_lineno, co.co_name)
-        break
-    return rv
 
 def _log_at_level(record, level=None, logger=None):
     """
@@ -207,13 +153,15 @@ def _log_at_level(record, level=None, logger=None):
     If level is None, use the record's level.
     """
     if logger is None:
-        logger = logging.getLogger()
+        logger = logging.getLogger(record.name)
     if level is not None:
         record.levelno = level
         record.levelname = logging.getLevelName(level)
 
     if record.levelno >= logger.getEffectiveLevel():
-        logger.handle(record)
+        # We use callHandlers instead of handle, because we already applied
+        # the filters when the log record was created.
+        logger.callHandlers(record)
 
 ###############################################################################
 ### Colored log messages, Thanks to airmind @ stackoverflow

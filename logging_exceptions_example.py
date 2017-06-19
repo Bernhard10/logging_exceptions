@@ -12,13 +12,6 @@ def foo():
     for level in [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]:
         log.log(level, "Logging at level %s.", level)
 
-def raise_error(value):
-    try:
-        raise ValueError("Test value Error")
-    except ValueError as e:
-        logging_exceptions.attach(e, "raise_error called with value %s", value)
-        raise
-
 def raise_error_contextmngr(value):
     e = ValueError("Another ValueError")
     log = logging.getLogger("main.inside_ctxt")
@@ -34,7 +27,7 @@ def raise_error_contextmngr(value):
 
 def raise_error_contextmngr2(value):
     e = ValueError("Another ValueError")
-    log = logging.getLogger("main.inside_ctxt")
+    log = logging.getLogger("main.inside_ctxt2")
     log.info("Before with-context. This is logged directly")
     with logging_exceptions.log_to_exception(log, e):
         log.debug("This is DEBUG ... %s", value)
@@ -45,6 +38,14 @@ def raise_error_contextmngr2(value):
         log.info("Raising inside with context")
         raise e
 
+class Filter1(logging.Filter):
+    def __init__(self, name):
+        super(Filter1, self).__init__()
+        self.name = name
+    def filter(self, record):
+        record.msg = record.msg+" Filtered by {}".format(self.name)
+        return True
+
 if __name__ == "__main__":
     args = parser.parse_args()
     logging.basicConfig()
@@ -52,26 +53,13 @@ if __name__ == "__main__":
     logging_exceptions.config_from_args(args)
     log = logging.getLogger("main1")
     log.info("Logging is enabled for logger 1.")
-
+    fltr = Filter1("Main1 logger")
+    log.addFilter(fltr)
+    log.info("Now with filter")
     for level in [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]:
         log.log(level, "Logging at level %s.", level)
 
     foo()
-
-    try:
-        raise_error(24)
-    except Exception as e:
-        logging_exceptions.log_exception(e, logging.INFO)
-
-    try:
-        raise_error(124)
-    except Exception as e:
-        logging_exceptions.log_exception(e, logger=log)
-
-    try:
-        raise_error(42)
-    except Exception as e:
-        logging_exceptions.log_exception(e, logging.WARNING, logger=logging.getLogger("main.exception"))
 
     try:
         raise_error_contextmngr(120)
@@ -82,12 +70,16 @@ if __name__ == "__main__":
     except Exception as e:
         logging_exceptions.log_exception(e)
 
+    fltr = Filter1("CTMNGR2")
+    log = logging.getLogger("main.inside_ctxt2")
+    log.addFilter(fltr)
+
+    log=logging.getLogger()
+    log.handlers[0].addFilter(Filter1("RootHandler"))
     try:
         raise_error_contextmngr2(12345)
     except Exception as e:
         logging_exceptions.log_exception(e)
-
-
 
 
     log.info("Almost there")
