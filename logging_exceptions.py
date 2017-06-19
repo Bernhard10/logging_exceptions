@@ -74,7 +74,7 @@ def log_exception(exception, level=None, logger=None):
     if level is None:
         level = logging.CRITICAL
 
-    fn, lno, func = find_caller()
+    fn, lno, func = _find_caller()
     record = logging.LogRecord(logger.name, logging.CRITICAL, fn, lno,
                                "Exception of type '%s' occurred:",
                                type(exception).__name__, sys.exc_info(), func)
