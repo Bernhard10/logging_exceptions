@@ -26,7 +26,7 @@ Self-logging exceptions
 
 Attach a log message to an exception:
 
-.. code-bklock:: python
+.. code-block:: python
 
     import logging
     import logging_exceptions as exlog
@@ -110,7 +110,7 @@ which we have to decide between discarding and emitting the log messages is well
 known.
 
 The `log_to_exception` decorator, on the other hand, is useful if the exception
- is well specified (it is already created/ caught), but the the scope in which
+is well specified (it is already created/ caught), but the the scope in which
 the exception may or may not be caught is unspecified. Examples would be 
 library functions that raise an error.
 

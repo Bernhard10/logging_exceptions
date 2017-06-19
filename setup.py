@@ -2,12 +2,12 @@ from setuptools import setup
 import os.path
 
 # Get the long description from the README file
-with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
+with open('README.rst') as f:
     long_description = f.read()
 
 
 setup(name='logging_exceptions',
-      version='0.1.2',
+      version='0.1.4',
       py_modules=['logging_exceptions'],
       author="Bernhard C. Thiel",
       author_email="thiel@tbi.univie.ac.at",
