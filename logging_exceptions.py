@@ -5,16 +5,17 @@ import os.path
 import contextlib
 
 
-__all__ = [ 'log_to_exception', 'log_exception', 
-            'update_parser', 'config_from_args']
+__all__ = ['log_to_exception', 'log_exception',
+           'update_parser', 'config_from_args']
 
 ##############################################################################
-### A costum sys.excepthook that displays all log messages
-### associated with an unhandled exception.
+# A costum sys.excepthook that displays all log messages
+# associated with an unhandled exception.
 ###############################################################################
 
 # The except_hook before we modify it
 default_excepthook = sys.excepthook
+
 
 def logging_excepthook(type, exception, traceback):
     """
@@ -27,12 +28,14 @@ def logging_excepthook(type, exception, traceback):
             logging.getLogger(record.name).handle(record)
     default_excepthook(type, exception, traceback)
 
+
 sys.excepthook = logging_excepthook
 
 ###############################################################################
-### Public API for attaching log messages to exceptions and
-### for displaying logs associated with caught exceptions.
+# Public API for attaching log messages to exceptions and
+# for displaying logs associated with caught exceptions.
 ###############################################################################
+
 
 @contextlib.contextmanager
 def log_to_exception(logger, exception):
@@ -41,7 +44,7 @@ def log_to_exception(logger, exception):
     propagate = logger.propagate
     original_handlers = logger.handlers
     # Assign a new handler
-    logger.handlers = [ logging.handlers.BufferingHandler(1000) ]
+    logger.handlers = [logging.handlers.BufferingHandler(1000)]
     logger.propagate = False
     try:
         yield
@@ -55,13 +58,14 @@ def log_to_exception(logger, exception):
                 # No attribute extend. Issue a warning and discard buffered
                 log = logging.getLogger(__name__)
                 warnings.warn("Cannot attach log to exception {}. "
-                            "Potential name clash with attribute "
-                            "'log'".format(type(exception).__name__))
+                              "Potential name clash with attribute "
+                              "'log'".format(type(exception).__name__))
         else:
             exception.log = logger.handlers[0].buffer
         # Restore original logger configutration
         logger.propagate = propagate
         logger.handlers = original_handlers
+
 
 def log_exception(exception, level=None, logger=None):
     """
@@ -74,27 +78,29 @@ def log_exception(exception, level=None, logger=None):
         for record in exception.log:
             _log_at_level(record, level, logger)
         if exception.log and logger is None:
-                logger = logging.getLogger(exception.log[-1].name)
+            logger = logging.getLogger(exception.log[-1].name)
     if level is None:
         level = logging.CRITICAL
 
     if logger is None:
         logger = logging.getLogger()
     if level is None:
-        level=logging.CRITICAL
+        level = logging.CRITICAL
     logger.log(level, "Exception of type '%s' occurred:",
                type(exception).__name__, exc_info=True)
+
 
 log = log_exception
 
 ###############################################################################
-### Public API: Convenience functions for argparsing
+# Public API: Convenience functions for argparsing
 ###############################################################################
 
 # A sentinel
 class _Default:
     pass
 _DEFAULT = _Default()
+
 
 def update_parser(parser, use_shortcuts=True):
     """
@@ -108,15 +114,16 @@ def update_parser(parser, use_shortcuts=True):
     else:
         v = ['--verbose']
         q = ['--quiet']
-    parser.add_argument( *v, action='store_true',
+    parser.add_argument(*v, action='store_true',
                         help="Show verbose output (Output logged at level logging.INFO)")
     parser.add_argument('--debug', type=str, nargs='?', const=_DEFAULT,
                         help="A comma-seperated list of logger names for which debug output will be activated."
                              "WARNING: If you misspell the logger name, this argument will be ignored")
-    parser.add_argument( *q, type=str, nargs='?', const=_DEFAULT,
+    parser.add_argument(*q, type=str, nargs='?', const=_DEFAULT,
                         help="A comma-seperated list of logger names for which only messages logged at the level 'CRITICAL' will be shown."
                              "Use this without arguments if everything should be quiet.")
     return parser
+
 
 def config_from_args(args):
     """
@@ -142,8 +149,9 @@ def config_from_args(args):
                 logging.getLogger(logger_name).setLevel(logging.CRITICAL)
 
 ###############################################################################
-### Private utility functions
+# Private utility functions
 ###############################################################################
+
 
 def _log_at_level(record, level=None, logger=None):
     """
@@ -163,16 +171,17 @@ def _log_at_level(record, level=None, logger=None):
         # the filters when the log record was created.
         logger.callHandlers(record)
 
+
 ###############################################################################
-### Colored log messages, Thanks to airmind @ stackoverflow
-### This is not part of the public API and may be replaced by the
-### colorlog package in the future
+# Colored log messages, Thanks to airmind @ stackoverflow
+# This is not part of the public API and may be replaced by the
+# colorlog package in the future
 ###############################################################################
-#Colored log output http://stackoverflow.com/a/384125
-#The foreground is set with 30 plus the number of the color
+# Colored log output http://stackoverflow.com/a/384125
+# The foreground is set with 30 plus the number of the color
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
-#These are the sequences need to get colored ouput
+# These are the sequences need to get colored ouput
 RESET_SEQ = "\033[0m"
 COLOR_SEQ = "\033[1;%dm"
 BOLD_SEQ = "\033[1m"
@@ -191,21 +200,26 @@ COLORS_DARK = {
     'CRITICAL': RED,
     'ERROR': RED
 }
+
+
 class ColoredFormatter(logging.Formatter):
     def __init__(self, colors, msg=None):
         logging.Formatter.__init__(self, msg)
         self.colors = colors
+
     def format(self, record):
         levelname = record.levelname
-        return ( COLOR_SEQ % (30 + self.colors[levelname]) +
-                 logging.Formatter.format(self, record) +  RESET_SEQ)
+        return (COLOR_SEQ % (30 + self.colors[levelname]) +
+                logging.Formatter.format(self, record) + RESET_SEQ)
 
-def use_colored_output(dark_bg = False):
+
+def use_colored_output(dark_bg=False):
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
     if dark_bg:
         colors = COLORS_DARK
     else:
         colors = COLORS_LIGHT
-    ch.setFormatter(ColoredFormatter(colors, "%(levelname)s:%(name)s.%(funcName)s[%(lineno)d]: %(message)s"))
+    ch.setFormatter(ColoredFormatter(
+        colors, "%(levelname)s:%(name)s.%(funcName)s[%(lineno)d]: %(message)s"))
     logging.getLogger().handlers[0].setFormatter(ch)

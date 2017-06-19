@@ -12,6 +12,7 @@ def foo():
     for level in [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]:
         log.log(level, "Logging at level %s.", level)
 
+
 def raise_error_contextmngr(value):
     e = ValueError("Another ValueError")
     log = logging.getLogger("main.inside_ctxt")
@@ -24,6 +25,7 @@ def raise_error_contextmngr(value):
         log.critical("This is CRITICAL ... %s", value)
     log.info("After with-context. This is logged directly")
     raise e
+
 
 def raise_error_contextmngr2(value):
     e = ValueError("Another ValueError")
@@ -38,13 +40,16 @@ def raise_error_contextmngr2(value):
         log.info("Raising inside with context")
         raise e
 
+
 class Filter1(logging.Filter):
     def __init__(self, name):
         super(Filter1, self).__init__()
         self.name = name
+
     def filter(self, record):
-        record.msg = record.msg+" Filtered by {}".format(self.name)
+        record.msg = record.msg + " Filtered by {}".format(self.name)
         return True
+
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -74,13 +79,18 @@ if __name__ == "__main__":
     log = logging.getLogger("main.inside_ctxt2")
     log.addFilter(fltr)
 
-    log=logging.getLogger()
+    log = logging.getLogger()
     log.handlers[0].addFilter(Filter1("RootHandler"))
     try:
         raise_error_contextmngr2(12345)
     except Exception as e:
         logging_exceptions.log_exception(e)
 
-
     log.info("Almost there")
-    raise_error_contextmngr(-1)
+    try:
+        raise_error_contextmngr2(-1)
+    except Exception as e:
+        with logging_exceptions.log_to_exception(log, e):
+            log.critical("using a BARE RAISE works as intended.")
+        raise
+
