@@ -2,9 +2,48 @@ import logging
 import logging.handlers
 import sys
 import os.path
+import contextlib
+
 
 __all__ = [ 'attach_log_to_exception', 'attach', 'log_exception', 'log',
             'update_parser', 'config_from_args']
+
+@contextlib.contextmanager
+def log_to_exception(logger, exception):
+    # __enter__:
+    # store the original logger configuration
+    propagate = logger.propagate
+    original_handlers = logger.handlers
+    # Assign a new handler
+    logger.handlers = [ logging.handlers.BufferingHandler(1000) ]
+    logger.propagate = False
+    try:
+        yield
+    finally:
+        # __exit__:
+        # Attach the log records to the exception
+        if hasattr(exception, "log"):
+            try:
+                exception.log.extend(logger.handlers[0].buffer)
+            except AttributeError:
+                # No attribute extend. Issue a warning and discard buffered
+                log = logging.getLogger(__name__)
+                warnings.warn("Cannot attach log to exception {}. "
+                            "Potential name clash with attribute "
+                            "'log'".format(type(exception).__name__))
+        else:
+            exception.log = logger.handlers[0].buffer
+        # Restore original logger configutration
+        logger.propagate = propagate
+        logger.handlers = original_handlers
+
+
+
+
+
+
+
+
 
 ###############################################################################
 ### A costum sys.excepthook that displays all log messages
@@ -22,7 +61,7 @@ def logging_excepthook(type, exception, traceback):
     """
     if hasattr(exception, "log"):
         for record in exception.log:
-            logging.getLogger().handle(record)
+            logging.getLogger(record.name).handle(record)
     default_excepthook(type, exception, traceback)
 
 sys.excepthook = logging_excepthook
@@ -66,14 +105,16 @@ def log_exception(exception, level=None, logger=None):
     If a logger is given, its name is not used, however, its handler
     and its level are respected.
     """
-    if logger is None:
-        logger = logging.getLogger()
     if hasattr(exception, "log"):
         for record in exception.log:
             _log_at_level(record, level, logger)
+        if logger is None:
+            logger = logging.getLogger(record.name)
     if level is None:
         level = logging.CRITICAL
 
+    if logger is None:
+        logger = logging.getLogger()
     fn, lno, func = _find_caller()
     record = logging.LogRecord(logger.name, logging.CRITICAL, fn, lno,
                                "Exception of type '%s' occurred:",
