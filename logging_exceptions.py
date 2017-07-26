@@ -86,7 +86,10 @@ def log_exception(exception, level=None, logger=None, with_stacktrace=True):
         logger = logging.getLogger()
     if level is None:
         level = logging.CRITICAL
-    logger.log(level, "Exception of type '%s' occurred:",
+    msg = "Exception of type '%s' occurred:"
+    if not with_stacktrace:
+        msg += " "+str(exception)
+    logger.log(level, msg,
                type(exception).__name__, exc_info=with_stacktrace)
 
 

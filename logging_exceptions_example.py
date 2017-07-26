@@ -84,7 +84,7 @@ if __name__ == "__main__":
     try:
         raise_error_contextmngr2(12345)
     except Exception as e:
-        logging_exceptions.log_exception(e)
+        logging_exceptions.log_exception(e, with_stacktrace=False)
 
     log.info("Almost there")
     try:
