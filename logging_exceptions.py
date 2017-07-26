@@ -67,7 +67,7 @@ def log_to_exception(logger, exception):
         logger.handlers = original_handlers
 
 
-def log_exception(exception, level=None, logger=None):
+def log_exception(exception, level=None, logger=None, with_stacktrace=True):
     """
     Log the given exception at the specified level with the specified logger.
 
@@ -87,7 +87,7 @@ def log_exception(exception, level=None, logger=None):
     if level is None:
         level = logging.CRITICAL
     logger.log(level, "Exception of type '%s' occurred:",
-               type(exception).__name__, exc_info=True)
+               type(exception).__name__, exc_info=with_stacktrace)
 
 
 log = log_exception
