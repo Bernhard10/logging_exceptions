@@ -75,11 +75,10 @@ By adding function names to `ignored_functions`, it is possible to record
 matching function's parents instead of matching functions as the caller.
 
 In particular, the context manager `logging_exceptions.log_at_caller` can be used
-in helper functions to temporarily update a logger's `ignored_functions` in order
- to record a function's caller instead of the function.
+in helper functions to temporarily update a logger's `ignored_functions` in order to record a function's caller instead of the function.
 
- The following code will emit a log message with the function name set to
- `foo`, not `helper_function`:
+The following code will emit a log message with the function name set to 
+`foo`, not `helper_function`:
 
  .. code-block:: python
 
