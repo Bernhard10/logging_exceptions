@@ -3,10 +3,14 @@ import logging.handlers
 import sys
 import os.path
 import contextlib
+import copy
+
+###########################################################
 
 
 __all__ = ['log_to_exception', 'log_exception',
-           'update_parser', 'config_from_args']
+           'update_parser', 'config_from_args',
+           'log_at_caller']
 
 ##############################################################################
 # A costum sys.excepthook that displays all log messages
@@ -30,6 +34,96 @@ def logging_excepthook(type, exception, traceback):
 
 
 sys.excepthook = logging_excepthook
+
+
+##############################################################################
+# A costum Logger subclass that does not record functions and filename
+# of this file, but instead the caller's filename and function name.
+###############################################################################
+
+# See the comment for logging._srcfile for an explaination why we don't use __file__
+# as the second string.
+# This variable takes the role of logging._srcfile
+ignored_filenames = [ logging._srcfile, os.path.normcase(logging_excepthook.__code__.co_filename)]
+
+
+class ExlogLogger(logging.Logger):
+    def __init__(self, name, level=logging.NOTSET):
+        super(ExlogLogger, self).__init__(name, level)
+        self.ignored_functions = []
+
+    def findCaller(self, stack_info=False):
+        """
+        Modified copy of the original logging.Logger.findCaller function.
+
+        Instead of only ignoring the logging Module when searching for
+        the function with the logging call, this also ignores logging_exceptions.
+
+        This is implemented by replacing
+        """
+        f = logging.currentframe()
+        #On some versions of IronPython, currentframe() returns None if
+        #IronPython isn't run with -X:Frames.
+        if f is not None:
+            f = f.f_back
+        rv = "(unknown file)", 0, "(unknown function)", None
+        while hasattr(f, "f_code"):
+            co = f.f_code
+            filename = os.path.normcase(co.co_filename)
+            if filename in ignored_filenames or co.co_name in self.ignored_functions:
+                f = f.f_back
+                continue
+            sinfo = None
+            if stack_info:
+                sio = io.StringIO()
+                sio.write('Stack (most recent call last):\n')
+                traceback.print_stack(f, file=sio)
+                sinfo = sio.getvalue()
+                if sinfo[-1] == '\n':
+                    sinfo = sinfo[:-1]
+                sio.close()
+            rv = (co.co_filename, f.f_lineno, co.co_name, sinfo)
+            break
+        if sys.version_info.major<3:
+            return rv[:3]
+        return rv
+
+
+logging.setLoggerClass(ExlogLogger)
+
+@contextlib.contextmanager
+def log_at_caller(logger):
+    """
+    A context manager for using the parent function as the
+    function name attached to the log record
+
+    :param logger: An instance of ExlogLogger. By importing logging_exceptions,
+                   the logger class is automatically set to ExlogLogger for all
+                   loggers created after logging_exceptions was imported.
+
+    .. warning::
+
+        If logger is not an instance of ExlogLogger (in particular if it is the root logger),
+        this context manager will do nothing
+
+    New in Version 0.1.6
+    """
+    # store the original ignored_functions
+    try:
+        orig_ignored_f = logger.ignored_functions
+    except AttributeError: #The logger is not a ExlogLogger. Do nothing
+        orig_ignored_f = None
+    else:
+        # Make a copy of ignored_functions and add the caller of this contect manager
+        logger.ignored_functions = copy.copy(logger.ignored_functions)
+        f = logging.currentframe()
+        logger.ignored_functions.append(f.f_code.co_name)
+    try:
+        yield
+    finally:
+        if orig_ignored_f is not None:
+            logger.ignored_functions = orig_ignored_f
+
 
 ###############################################################################
 # Public API for attaching log messages to exceptions and
@@ -73,6 +167,8 @@ def log_exception(exception, level=None, logger=None, with_stacktrace=True):
 
     If a logger is given, its name is not used, however, its handler
     and its level are respected.
+
+    :param with_stacktrace: Whether or not to show the stack_trace. New in version 0.1.5
     """
     if hasattr(exception, "log"):
         for record in exception.log:

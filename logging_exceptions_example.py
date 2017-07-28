@@ -40,6 +40,9 @@ def raise_error_contextmngr2(value):
         log.info("Raising inside with context")
         raise e
 
+def helper_function(log):
+    with logging_exceptions.log_at_caller(log):
+        log.error("Logged from within helper function")
 
 class Filter1(logging.Filter):
     def __init__(self, name):
@@ -53,7 +56,7 @@ class Filter1(logging.Filter):
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    logging.basicConfig()
+    logging.basicConfig(format = "%(levelname)s:%(name)s.%(funcName)s[%(lineno)d]: %(message)s")
     logging_exceptions.use_colored_output(True)
     logging_exceptions.config_from_args(args)
     log = logging.getLogger("main1")
@@ -75,6 +78,10 @@ if __name__ == "__main__":
     except Exception as e:
         logging_exceptions.log_exception(e)
 
+    log = logging.getLogger("another.logger.name")
+    log.info("The following should log from the main module level (doesn't work with root logger)")
+    helper_function(log)
+
     fltr = Filter1("CTMNGR2")
     log = logging.getLogger("main.inside_ctxt2")
     log.addFilter(fltr)
@@ -86,6 +93,7 @@ if __name__ == "__main__":
     except Exception as e:
         logging_exceptions.log_exception(e, with_stacktrace=False)
 
+
     log.info("Almost there")
     try:
         raise_error_contextmngr2(-1)
@@ -93,4 +101,3 @@ if __name__ == "__main__":
         with logging_exceptions.log_to_exception(log, e):
             log.critical("using a BARE RAISE works as intended.")
         raise
-
