@@ -7,7 +7,7 @@ with open('README.rst') as f:
 
 
 setup(name='logging_exceptions',
-      version='0.1.6',
+      version='0.1.7',
       py_modules=['logging_exceptions'],
       author="Bernhard C. Thiel",
       author_email="thiel@tbi.univie.ac.at",
