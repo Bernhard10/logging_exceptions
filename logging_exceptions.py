@@ -21,20 +21,31 @@ __all__ = ['log_to_exception', 'log_exception',
 default_excepthook = sys.excepthook
 
 
+def _log_in_exhook(exception):
+    if hasattr(exception, "log"):
+        for record in exception.log:
+            logging.getLogger(record.name).handle(record)
+
 def logging_excepthook(type, exception, traceback):
     """
     A except_hook that inspects the exception for the 'log' attribute.
     If it finds this attribute, it logs the contained log-records with the
     level ''critical' before calling default_excepthook
     """
-    if hasattr(exception, "log"):
-        for record in exception.log:
-            logging.getLogger(record.name).handle(record)
+    _log_in_exhook(exception)
     default_excepthook(type, exception, traceback)
 
+def ipython_handler(self, etype, value, tb, tb_offset=None):
+    _log_in_exhook(value)
+    self.showtraceback((etype, value, tb), tb_offset=tb_offset)
+    return None
 
-sys.excepthook = logging_excepthook
-
+try:
+    ipy = get_ipython()
+except NameError as e:
+    sys.excepthook = logging_excepthook
+else:
+    ipy.set_custom_exc((Exception,), ipython_handler)
 
 ##############################################################################
 # A costum Logger subclass that does not record functions and filename
@@ -319,6 +330,10 @@ def use_colored_output(dark_bg=False):
         colors = COLORS_DARK
     else:
         colors = COLORS_LIGHT
-    ch.setFormatter(ColoredFormatter(
-        colors, "%(levelname)s:%(name)s.%(funcName)s[%(lineno)d]: %(message)s"))
-    logging.getLogger().handlers[0].setFormatter(ch)
+    cf = ColoredFormatter(
+            colors, "%(levelname)s:%(name)s.%(funcName)s[%(lineno)d]: %(message)s"))
+    try:
+        logging.getLogger().handlers[0].setFormatter(ch)
+    except IndexError:
+        ch.setFormatter(cf)
+        logging.getLogger().addHandler(ch)
