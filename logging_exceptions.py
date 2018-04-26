@@ -331,7 +331,7 @@ def use_colored_output(dark_bg=False):
     else:
         colors = COLORS_LIGHT
     cf = ColoredFormatter(
-            colors, "%(levelname)s:%(name)s.%(funcName)s[%(lineno)d]: %(message)s"))
+            colors, "%(levelname)s:%(name)s.%(funcName)s[%(lineno)d]: %(message)s")
     try:
         logging.getLogger().handlers[0].setFormatter(ch)
     except IndexError:
