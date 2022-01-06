@@ -63,7 +63,7 @@ class ExlogLogger(logging.Logger):
         super(ExlogLogger, self).__init__(name, level)
         self.ignored_functions = []
 
-    def findCaller(self, stack_info=False):
+    def findCaller(self, stack_info=False, stacklevel=1):
         """
         Modified copy of the original logging.Logger.findCaller function.
 
